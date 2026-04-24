@@ -33,7 +33,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 function AppContent() {
-  const { user, loading, login, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const { t, language, setLanguage, isRTL } = useLanguage();
 
   if (loading || !user) {
