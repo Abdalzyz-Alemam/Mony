@@ -7,7 +7,8 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  signInAnonymously
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/src/lib/firebase';
@@ -18,6 +19,7 @@ interface AuthContextType {
   login: () => Promise<void>;
   loginEmail: (email: string, pass: string) => Promise<void>;
   registerEmail: (email: string, pass: string, username: string) => Promise<void>;
+  anonymousLogin: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -36,8 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (!userDoc.exists()) {
           await setDoc(userRef, {
-            email: user.email,
-            username: user.displayName || user.email?.split('@')[0],
+            email: user.email || 'guest@example.com',
+            username: user.displayName || (user.isAnonymous ? 'Guest' : user.email?.split('@')[0]) || 'User',
             balanceObligations: 0,
             balancePersonal: 0,
             balanceInvestment: 0,
@@ -48,6 +50,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             splitInvestment: 50,
             updatedAt: serverTimestamp(),
           });
+        }
+      } else {
+        // Auto-login anonymously if no user session exists
+        try {
+          await signInAnonymously(auth);
+        } catch (err) {
+          console.error("Error signing in anonymously:", err);
         }
       }
       setUser(user);
@@ -64,6 +73,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginEmail = async (email: string, pass: string) => {
     await signInWithEmailAndPassword(auth, email, pass);
+  };
+
+  const anonymousLogin = async () => {
+    await signInAnonymously(auth);
   };
 
   const registerEmail = async (email: string, pass: string, username: string) => {
@@ -92,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginEmail, registerEmail, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginEmail, registerEmail, anonymousLogin, logout }}>
       {children}
     </AuthContext.Provider>
   );
