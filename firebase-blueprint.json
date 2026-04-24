@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account settings and balances summary",
+      "type": "object",
+      "properties": {
+        "balanceObligations": { "type": "number" },
+        "balancePersonal": { "type": "number" },
+        "balanceInvestment": { "type": "number" },
+        "totalIncome": { "type": "number" },
+        "totalExpenses": { "type": "number" },
+        "splitObligations": { "type": "number", "description": "Percentage for obligations (0-100)" },
+        "splitPersonal": { "type": "number", "description": "Percentage for personal spending (0-100)" },
+        "splitInvestment": { "type": "number", "description": "Percentage for investment (0-100)" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["balanceObligations", "balancePersonal", "balanceInvestment", "splitObligations", "splitPersonal", "splitInvestment"]
+    },
+    "Income": {
+      "title": "Income Entry",
+      "description": "A record of incoming money",
+      "type": "object",
+      "properties": {
+        "amount": { "type": "number" },
+        "source": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "splitObligations": { "type": "number" },
+        "splitPersonal": { "type": "number" },
+        "splitInvestment": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["amount", "date", "createdAt"]
+    },
+    "Expense": {
+      "title": "Expense Entry",
+      "description": "A record of outgoing money",
+      "type": "object",
+      "properties": {
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "account": { "type": "string", "enum": ["obligations", "personal", "investment"] },
+        "date": { "type": "string", "format": "date-time" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["amount", "category", "account", "date", "createdAt"]
+    },
+    "Task": {
+      "title": "Task or Goal",
+      "description": "Daily or weekly tasks and goals",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["daily", "weekly"] },
+        "completed": { "type": "boolean" },
+        "date": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "type", "completed", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Stores user profiles, balances and settings."
+    },
+    "/users/{userId}/income/{incomeId}": {
+      "schema": "Income",
+      "description": "Stores all income records for a specific user."
+    },
+    "/users/{userId}/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Stores all expense records for a specific user."
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Stores daily tasks and weekly goals for a specific user."
+    }
+  }
+}

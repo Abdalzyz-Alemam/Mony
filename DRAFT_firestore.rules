@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- PHASE 3: Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- PHASE 2: Validation Blueprints ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['balanceObligations', 'balancePersonal', 'balanceInvestment', 'splitObligations', 'splitPersonal', 'splitInvestment'])
+        && data.balanceObligations is number
+        && data.balancePersonal is number
+        && data.balanceInvestment is number
+        && data.splitObligations is number
+        && data.splitPersonal is number
+        && data.splitInvestment is number
+        && data.splitObligations + data.splitPersonal + data.splitInvestment == 100
+        && data.splitObligations >= 0 && data.splitPersonal >= 0 && data.splitInvestment >= 0;
+    }
+
+    function isValidIncome(data) {
+      return data.keys().hasAll(['amount', 'date', 'createdAt'])
+        && data.amount is number && data.amount > 0
+        && data.date is string && data.date.size() <= 64
+        && data.createdAt == request.time;
+    }
+
+    function isValidExpense(data) {
+      return data.keys().hasAll(['amount', 'category', 'account', 'date', 'createdAt'])
+        && data.amount is number && data.amount > 0
+        && data.category is string && data.category.size() <= 64
+        && data.account in ['obligations', 'personal', 'investment']
+        && data.date is string && data.date.size() <= 64
+        && data.createdAt == request.time;
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(['title', 'type', 'completed', 'createdAt'])
+        && data.title is string && data.title.size() <= 255
+        && data.type in ['daily', 'weekly']
+        && data.completed is bool
+        && data.createdAt == request.time;
+    }
+
+    // --- PHASE 4: Match Blocks ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && (
+        // Action: Update Stats/Balances (Allowing changes to balances and splits)
+        (incoming().diff(existing()).affectedKeys().hasAny(['balanceObligations', 'balancePersonal', 'balanceInvestment', 'totalIncome', 'totalExpenses', 'splitObligations', 'splitPersonal', 'splitInvestment', 'updatedAt'])
+         && isValidUser(incoming()))
+      );
+
+      match /income/{incomeId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(incomeId) && isValidIncome(incoming());
+        allow delete: if isOwner(userId);
+      }
+
+      match /expenses/{expenseId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(expenseId) && isValidExpense(incoming());
+        allow delete: if isOwner(userId);
+      }
+
+      match /tasks/{taskId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(taskId) && isValidTask(incoming());
+        allow update: if isOwner(userId) && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['completed', 'title', 'type'])
+          && isValidTask(incoming())
+        );
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
